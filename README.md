@@ -7,6 +7,32 @@ CtYun 用于登录天翼云电脑并维持 WebSocket 保活连接。当前版本
 - Docker：支持挂载本地配置文件模式和 `-it` 交互输入模式。
 - 首次绑定设备需要短信验证码时，通过终端交互输入。
 
+## 与上游 [leleji/CtYun](https://github.com/leleji/CtYun) 的差异
+
+本仓库基于上游 v1.1.5 fork，**保活逻辑与上游完全一致**，仅新增以下功能：
+
+1. **日志文件化**：控制台输出的同时写入数据目录 `logs/ctyun-YYYY-MM-DD.log`，按天滚动，UTF-8 带 BOM（Windows 记事本打开不乱码）；Windows/Linux/Docker 全平台生效。
+2. **控制台可隐藏（`hideConsole`）**：`accounts.json` 新增配置项，设为 `true` 后 Windows 下运行不再弹出黑色控制台窗口，日志改由文件日志承载；仅 Windows 生效，Linux/Docker 自动跳过，不影响原有功能。
+3. **发行版编译形态**：Release 中的 `CtYun.exe` 为 **NativeAOT 原生编译**单文件（win-x64，约 6.4 MB），与上游发行版体积一致，免安装 .NET 运行时直接运行。CI 已支持推送 `v*` 标签时自动完成 AOT 编译并发布 Release。
+
+`accounts.json` 配置示例：
+
+```json
+{
+  "keepAliveSeconds": 60,
+  "hideConsole": true,
+  "accounts": [
+    {
+      "name": "account-a",
+      "user": "你的账号",
+      "password": "你的密码"
+    }
+  ]
+}
+```
+
+> 注意：首次设备绑定需要短信验证码输入，请保持 `hideConsole` 为 `false`，用窗口模式完成绑定后再开启隐藏。
+
 ## 配置文件模式
 
 程序默认在数据目录读取 `accounts.json`：
@@ -39,6 +65,8 @@ CtYun 用于登录天翼云电脑并维持 WebSocket 保活连接。当前版本
 
 `deviceCode` 可不填。程序会为每个账号自动生成设备码，并保存到 `devices/{账号名}.txt`。为了避免每次 Docker 重建镜像后重新绑定设备，务必持久化数据目录。
 
+> 提示：多账号时可为每个账号单独指定 `deviceCode`；日志文件位于数据目录 `logs/` 下，按账号名和云电脑编号区分。
+
 Linux 生成设备码示例：
 
 ```bash
@@ -59,6 +87,7 @@ CtYun.exe
 账号:
 密码:
 继续添加账号? (y/N):
+
 ```
 
 首次设备绑定时，程序会提示输入短信验证码。
@@ -134,7 +163,26 @@ docker run -d \
 ```text
 [account-a][desktop-code] -> 收到保活校验
 [account-a][desktop-code] -> 发送保活响应成功
+
 ```
+
+本 fork 额外将上述日志写入数据目录 `logs/ctyun-YYYY-MM-DD.log`（控制台与文件双写）。
+
+## 从源码构建
+
+- **Windows NativeAOT**（产出与 Release 相同的 6.4 MB 单文件，需 VS 2022 C++ 工具链）：
+
+```bash
+dotnet publish CtYun/CtYun.csproj -c Release -r win-x64 -o publish
+```
+
+- **Docker / Linux**（框架依赖，多架构镜像由 CI 自动构建）：
+
+```bash
+dotnet publish CtYun/CtYun.csproj -c Release -p:PublishAot=false -o publish
+```
+
+- **CI**：推送到 `master` 自动构建并推送 Docker 多架构镜像；推送 `v*` 标签自动编译 Windows NativeAOT 并发布 GitHub Release。
 
 ## 说明
 
