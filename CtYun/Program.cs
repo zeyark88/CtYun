@@ -21,7 +21,10 @@ if (runtimeConfig.HideConsole)
 
 if (runtimeConfig.Accounts.Count == 0)
 {
-    Utility.WriteLine(ConsoleColor.Red, "未读取到账号配置。请配置 accounts.json，或设置 APP_USER/APP_PASSWORD，或使用交互输入模式。");
+    var hint = runtimeConfig.TemplatePath != null
+        ? $"已在程序目录生成空模板：{runtimeConfig.TemplatePath}，请编辑填入账号后重新运行；"
+        : string.Empty;
+    Utility.WriteLine(ConsoleColor.Red, $"未读取到账号配置。{hint}请配置 accounts.json，或设置 APP_USER/APP_PASSWORD，或使用交互输入模式。");
     return;
 }
 
@@ -258,9 +261,38 @@ RuntimeConfig LoadRuntimeConfig()
     Directory.CreateDirectory(dataDir);
 
     var config = LoadAccountsFromFile(dataDir) ?? LoadAccountsFromEnvironment();
+    string templatePath = null;
+
     if (config == null || config.Accounts.Count == 0)
     {
-        config = LoadAccountsFromConsole(dataDir);
+        var configPath = GetConfigPath(dataDir);
+
+        // 无配置文件时生成空模板，便于用户直接编辑
+        if (!File.Exists(configPath) && TryWriteAccountsJson(configPath, new AppConfig()))
+        {
+            templatePath = configPath;
+            Utility.WriteLine(ConsoleColor.Green, $"已生成空模板配置文件：{configPath}");
+            Utility.WriteLine(ConsoleColor.Yellow, "可直接编辑该文件填入账号；或继续在下方交互输入，录入完成后会自动保存到该文件。");
+            Utility.WriteLine(ConsoleColor.Yellow, "提示：首次绑定设备需要短信验证码，请保持 hideConsole 为 false，绑定成功后再改为 true。");
+        }
+
+        var collected = LoadAccountsFromConsole(dataDir);
+        if (collected.Accounts.Count > 0)
+        {
+            // 保留配置文件中已有的 keepAliveSeconds；交互录入的新账号首次绑定需要短信验证码，
+            // 强制以 hideConsole=false 保存，避免绑定窗口被隐藏导致验证码无法输入
+            collected.KeepAliveSeconds = config?.KeepAliveSeconds ?? 60;
+            collected.HideConsole = false;
+            if (TryWriteAccountsJson(configPath, collected))
+            {
+                Utility.WriteLine(ConsoleColor.Green, $"已保存 {collected.Accounts.Count} 个账号到：{configPath}，下次运行无需重复输入。");
+            }
+            config = collected;
+        }
+        else
+        {
+            config = collected;
+        }
     }
 
     foreach (var account in config.Accounts)
@@ -269,7 +301,33 @@ RuntimeConfig LoadRuntimeConfig()
         account.DeviceCode = ResolveDeviceCode(account, dataDir);
     }
 
-    return new RuntimeConfig(config.Accounts, Math.Max(10, config.KeepAliveSeconds), dataDir, config.HideConsole);
+    return new RuntimeConfig(config.Accounts, Math.Max(10, config.KeepAliveSeconds), dataDir, config.HideConsole, templatePath);
+}
+
+string GetConfigPath(string dataDir)
+{
+    var configPath = Environment.GetEnvironmentVariable("CTYUN_CONFIG");
+    if (string.IsNullOrWhiteSpace(configPath))
+    {
+        configPath = Path.Combine(dataDir, "accounts.json");
+    }
+
+    return configPath;
+}
+
+static bool TryWriteAccountsJson(string path, AppConfig config)
+{
+    try
+    {
+        var json = JsonSerializer.Serialize(config, AppJsonSerializerContext.Default.AppConfig);
+        File.WriteAllText(path, json, new UTF8Encoding(true));
+        return true;
+    }
+    catch (Exception ex)
+    {
+        Utility.WriteLine(ConsoleColor.Red, $"写入配置文件失败：{ex.Message}");
+        return false;
+    }
 }
 
 AppConfig LoadAccountsFromEnvironment()
@@ -298,11 +356,7 @@ AppConfig LoadAccountsFromEnvironment()
 
 AppConfig LoadAccountsFromFile(string dataDir)
 {
-    var configPath = Environment.GetEnvironmentVariable("CTYUN_CONFIG");
-    if (string.IsNullOrWhiteSpace(configPath))
-    {
-        configPath = Path.Combine(dataDir, "accounts.json");
-    }
+    var configPath = GetConfigPath(dataDir);
 
     if (!File.Exists(configPath))
     {
@@ -443,4 +497,5 @@ record RuntimeConfig(
     List<AccountConfig> Accounts,
     int KeepAliveSeconds,
     string DataDir,
-    bool HideConsole);
+    bool HideConsole,
+    string TemplatePath = null);
