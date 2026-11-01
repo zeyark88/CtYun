@@ -11,6 +11,14 @@ using var globalCts = new CancellationTokenSource();
 Utility.WriteLine(ConsoleColor.Green, $"版本：v {Assembly.GetEntryAssembly()?.GetName().Version}");
 
 var runtimeConfig = LoadRuntimeConfig();
+Utility.InitLog(runtimeConfig.DataDir);
+
+if (runtimeConfig.HideConsole)
+{
+    WinConsole.Hide();
+    Utility.WriteLine(ConsoleColor.Yellow, "已启用隐藏控制台模式，日志写入文件（数据目录/logs/）。");
+}
+
 if (runtimeConfig.Accounts.Count == 0)
 {
     Utility.WriteLine(ConsoleColor.Red, "未读取到账号配置。请配置 accounts.json，或设置 APP_USER/APP_PASSWORD，或使用交互输入模式。");
@@ -116,6 +124,11 @@ async Task<bool> PerformLoginSequence(CtYunApi api, AccountConfig account, Runti
 string ReadVerificationCode(AccountConfig account)
 {
     var label = AccountLabel(account);
+    if (runtimeConfig.HideConsole)
+    {
+        Utility.WriteLine(ConsoleColor.Red, $"[{label}] 控制台已隐藏，无法输入短信验证码。请先将配置 hideConsole 设为 false，用窗口模式完成首次设备绑定后再隐藏。");
+        return "";
+    }
     if (!CanReadFromConsole())
     {
         Utility.WriteLine(ConsoleColor.Red, $"[{label}] 当前账号需要短信验证码，请使用 -it 交互模式重新运行并输入验证码。");
@@ -256,7 +269,7 @@ RuntimeConfig LoadRuntimeConfig()
         account.DeviceCode = ResolveDeviceCode(account, dataDir);
     }
 
-    return new RuntimeConfig(config.Accounts, Math.Max(10, config.KeepAliveSeconds), dataDir);
+    return new RuntimeConfig(config.Accounts, Math.Max(10, config.KeepAliveSeconds), dataDir, config.HideConsole);
 }
 
 AppConfig LoadAccountsFromEnvironment()
@@ -429,4 +442,5 @@ static bool IsRunningInContainer() => File.Exists("/.dockerenv");
 record RuntimeConfig(
     List<AccountConfig> Accounts,
     int KeepAliveSeconds,
-    string DataDir);
+    string DataDir,
+    bool HideConsole);

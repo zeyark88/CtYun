@@ -11,6 +11,13 @@ namespace CtYun.Models
         [JsonPropertyName("keepAliveSeconds")]
         public int KeepAliveSeconds { get; set; } = 60;
 
+        /// <summary>
+        /// 是否隐藏控制台窗口（仅 Windows 生效）。设为 true 后，启动时隐藏黑色窗口，
+        /// 日志改由文件日志承载（数据目录/logs/）。首次需要短信验证码绑定设备时请保持 false。
+        /// </summary>
+        [JsonPropertyName("hideConsole")]
+        public bool HideConsole { get; set; } = false;
+
     }
 
     public class AccountConfig
