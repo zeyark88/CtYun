@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace CtYun
 {
     //Aot编译需要
+    [JsonSourceGenerationOptions(WriteIndented = true)]
     [JsonSerializable(typeof(ConnecMessage))]
     [JsonSerializable(typeof(AppConfig))]
 
