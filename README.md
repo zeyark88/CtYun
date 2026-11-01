@@ -9,11 +9,14 @@ CtYun 用于登录天翼云电脑并维持 WebSocket 保活连接。当前版本
 
 ## 与上游 [leleji/CtYun](https://github.com/leleji/CtYun) 的差异
 
-本仓库基于上游 v1.1.5 fork，**保活逻辑与上游完全一致**，仅新增以下功能：
+本仓库基于上游 v1.1.5 fork，**保活逻辑与上游完全一致**，新增功能与改进：
 
 1. **日志文件化**：控制台输出的同时写入数据目录 `logs/ctyun-YYYY-MM-DD.log`，按天滚动，UTF-8 带 BOM（Windows 记事本打开不乱码）；Windows/Linux/Docker 全平台生效。
 2. **控制台可隐藏（`hideConsole`）**：`accounts.json` 新增配置项，设为 `true` 后 Windows 下运行不再弹出黑色控制台窗口，日志改由文件日志承载；仅 Windows 生效，Linux/Docker 自动跳过，不影响原有功能。
 3. **发行版编译形态**：Release 中的 `CtYun.exe` 为 **NativeAOT 原生编译**单文件（win-x64，约 6.4 MB），与上游发行版体积一致，免安装 .NET 运行时直接运行。CI 已支持推送 `v*` 标签时自动完成 AOT 编译并发布 Release。
+4. **首次零配置体验**：无 `accounts.json` 时自动在程序目录生成空模板；交互输入的账号自动保存进配置文件（下次免输入）；保存时强制 `hideConsole=false` 并提示“首次绑定需窗口模式，绑定成功后再改 true”，避免短信验证码无处输入。
+
+详细使用方法见仓库根目录 [使用说明.md](使用说明.md)。
 
 `accounts.json` 配置示例：
 
